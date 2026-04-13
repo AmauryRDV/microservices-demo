@@ -23,7 +23,8 @@ jobs:
 
       - name: Build and Push Container
         run: |
-          IMAGE_NAME="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}"
+          PROJECT_ID=$(echo "${{ secrets.GCP_PROJECT_ID }}" | tr -d '\n')
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${PROJECT_ID}/online-boutique/frontend:${{ github.sha }}"
           docker build -t "$IMAGE_NAME" ./src/frontend
           docker push "$IMAGE_NAME"
 
