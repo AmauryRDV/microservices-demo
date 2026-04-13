@@ -1,0 +1,34 @@
+name: Deploy Frontend to Cloud Run
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
+
+      - name: Build and Push Container
+        run: |-
+          docker build -t "europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}" ./src/frontend
+          docker push "europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}"
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: frontend
+          region: ${{ secrets.GCP_REGION }}
+          image: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}
+          flags: "--allow-unauthenticated --port=8080"
