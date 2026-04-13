@@ -22,9 +22,10 @@ jobs:
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev
 
       - name: Build and Push Container
-        run: |-
-          docker build -t "europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}" ./src/frontend
-          docker push "europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}"
+        run: |
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}"
+          docker build -t "$IMAGE_NAME" ./src/frontend
+          docker push "$IMAGE_NAME"
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
