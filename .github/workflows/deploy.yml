@@ -43,4 +43,7 @@ jobs:
             SHIPPING_SERVICE_ADDR=localhost:8080
             CHECKOUT_SERVICE_ADDR=localhost:8080
             AD_SERVICE_ADDR=localhost:8080
+            PAYMENT_SERVICE_ADDR=localhost:8080
+            EMAIL_SERVICE_ADDR=localhost:8080
+            SHOPPING_ASSISTANT_SERVICE_ADDR=localhost:8080
           flags: "--allow-unauthenticated --port=8080"
