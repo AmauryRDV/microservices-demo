@@ -34,4 +34,13 @@ jobs:
           service: frontend
           region: ${{ secrets.GCP_REGION }}
           image: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/online-boutique/frontend:${{ github.sha }}
+          # On ajoute les variables manquantes ici
+          env_vars: |
+            PRODUCT_CATALOG_SERVICE_ADDR=localhost:8080
+            CURRENCY_SERVICE_ADDR=localhost:8080
+            CART_SERVICE_ADDR=localhost:8080
+            RECOMMENDATION_SERVICE_ADDR=localhost:8080
+            SHIPPING_SERVICE_ADDR=localhost:8080
+            CHECKOUT_SERVICE_ADDR=localhost:8080
+            AD_SERVICE_ADDR=localhost:8080
           flags: "--allow-unauthenticated --port=8080"
