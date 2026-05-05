@@ -96,6 +96,7 @@ def publish():
     data = request.get_json()
     timestamp = datetime.now(timezone.utc).isoformat()
     key = f"event:{os.environ.get('HOSTNAME', 'local')}:{timestamp}"
+    processor_url = PROCESSOR_URL or request.url_root.rstrip("/")
     
     # Store in Redis if available, otherwise in Firestore
     if REDIS_AVAILABLE and r:
@@ -107,12 +108,12 @@ def publish():
         })
     
     # Cloud Tasks: Delegate snapshot saving
-    if TASK_QUEUE and PROCESSOR_URL:
+    if TASK_QUEUE and processor_url:
         parent = tasks_client.queue_path(PROJECT_ID, REGION, TASK_QUEUE)
         task = {
             "http_request": {
                 "http_method": tasks_v2.HttpMethod.POST,
-                "url": f"{PROCESSOR_URL}/process",
+                "url": f"{processor_url}/process",
                 "headers": {"Content-Type": "application/json"},
                 "body": json.dumps({"redis_key": key}).encode(),
             }

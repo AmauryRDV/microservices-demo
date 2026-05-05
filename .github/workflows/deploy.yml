@@ -1,4 +1,4 @@
-name: Build and Deploy TD Cloud Service to Cloud Run
+name: Build and Deploy TD Cloud Service Instances to Cloud Run
 
 on:
   push:
@@ -31,12 +31,11 @@ jobs:
           docker build -t "$IMAGE_NAME" ./td-cloud
           docker push "$IMAGE_NAME"
 
-      - name: Deploy to Cloud Run
+      - name: Deploy Instance 1 to Cloud Run
         run: |
           PROJECT_ID=$(echo "${{ secrets.GCP_PROJECT_ID }}" | tr -d '\n')
           IMAGE_NAME="europe-west1-docker.pkg.dev/${PROJECT_ID}/td-redis-repo/td-cloud-service:${{ github.sha }}"
-          SERVICE_URL=$(gcloud run services describe td-cloud-service --region=europe-west1 --format='value(status.url)' 2>/dev/null || echo "https://td-cloud-service-placeholder.europe-west1.run.app")
-          gcloud run deploy td-cloud-service \
+          gcloud run deploy td-cloud-instance-1 \
             --image "$IMAGE_NAME" \
             --platform managed \
             --region europe-west1 \
@@ -45,5 +44,20 @@ jobs:
             --port 8080 \
             --memory 512Mi \
             --cpu 1 \
-            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},REGION=europe-west1,SNAPSHOT_BUCKET=td-cloud-snapshots-gcp-ynov,TASK_QUEUE=game-events-queue,PROCESSOR_URL=${SERVICE_URL},RATE_LIMIT_PER_MIN=5,ADMIN_KEY=td-secret-2026,REDIS_HOST=127.0.0.1"
+            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},REGION=europe-west1,SNAPSHOT_BUCKET=td-cloud-snapshots-gcp-ynov,TASK_QUEUE=game-events-queue,RATE_LIMIT_PER_MIN=5,ADMIN_KEY=td-secret-2026,REDIS_HOST=127.0.0.1"
+
+      - name: Deploy Instance 2 to Cloud Run
+        run: |
+          PROJECT_ID=$(echo "${{ secrets.GCP_PROJECT_ID }}" | tr -d '\n')
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${PROJECT_ID}/td-redis-repo/td-cloud-service:${{ github.sha }}"
+          gcloud run deploy td-cloud-instance-2 \
+            --image "$IMAGE_NAME" \
+            --platform managed \
+            --region europe-west1 \
+            --allow-unauthenticated \
+            --project "$PROJECT_ID" \
+            --port 8080 \
+            --memory 512Mi \
+            --cpu 1 \
+            --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},REGION=europe-west1,SNAPSHOT_BUCKET=td-cloud-snapshots-gcp-ynov,TASK_QUEUE=game-events-queue,RATE_LIMIT_PER_MIN=5,ADMIN_KEY=td-secret-2026,REDIS_HOST=127.0.0.1"
           
