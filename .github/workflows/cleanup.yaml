@@ -27,7 +27,7 @@ on:
       - '.github/workflows/terraform-validate-ci.yaml'
 jobs:
   cleanup-namespace:
-    runs-on: [ubuntu-latest]
+    runs-on: [self-hosted, is-enabled]
     steps:
       - name: Delete PR namespace in staging cluster
         if: ${{ always() }}

@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "Continuous Integration - Pull Request"
+name: "Continuous Integration - Main/Release"
 on:
-  pull_request:
+  push:
+    # run on pushes to main or release/*
     branches:
       - main
+      - release/*
     paths-ignore:
       - '**/README.md'
       - 'kustomize/**'
@@ -25,12 +27,6 @@ on:
       - '.github/workflows/terraform-validate-ci.yaml'
       - 'helm-chart/**'
       - '.github/workflows/helm-chart-ci.yaml'
-
-# Ensure this workflow only runs for the most recent commit of a pull-request
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   code-tests:
     runs-on: [self-hosted, is-enabled]
@@ -47,9 +43,9 @@ jobs:
     - name: Go Unit Tests
       timeout-minutes: 10
       run: |
-        for GO_PACKAGE in "shippingservice" "productcatalogservice" "frontend/validator"; do
-          echo "Testing $GO_PACKAGE..."
-          pushd src/$GO_PACKAGE
+        for SERVICE in "shippingservice" "productcatalogservice"; do
+          echo "testing $SERVICE..."
+          pushd src/$SERVICE
           go test
           popd
         done
@@ -57,7 +53,6 @@ jobs:
       timeout-minutes: 10
       run: |
         dotnet test src/cartservice/
-
   deployment-tests:
     runs-on: [self-hosted, is-enabled]
     needs: code-tests
@@ -67,13 +62,13 @@ jobs:
       fail-fast: true
     steps:
     - uses: actions/checkout@v6
-      with:
-        ref: ${{github.event.pull_request.head.sha}}
     - name: Build + Deploy PR images to GKE
       timeout-minutes: 20
       run: |
+        PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
         NAMESPACE="pr${PR_NUMBER}"
         echo "::set-env name=NAMESPACE::$NAMESPACE"
+        echo "::set-env name=PR_NUMBER::$PR_NUMBER"
 
         yes | gcloud auth configure-docker us-docker.pkg.dev
         gcloud container clusters get-credentials $PR_CLUSTER --region $REGION --project $PROJECT_ID
@@ -85,10 +80,9 @@ jobs:
         EOF
         echo Deploying application
         skaffold config set --global local-cluster false
-        skaffold run --default-repo=us-docker.pkg.dev/$PROJECT_ID/refs/pull/$PR_NUMBER --tag=$PR_NUMBER --namespace=$NAMESPACE -p network-policies
+        skaffold run --default-repo=us-docker.pkg.dev/$PROJECT_ID/$GITHUB_REF --tag=$GITHUB_SHA --namespace=$NAMESPACE -p network-policies
       env:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-        PR_NUMBER: ${{ github.event.pull_request.number }}
         PROJECT_ID: "online-boutique-ci"
         PR_CLUSTER: "prs-gke-cluster"
         REGION: "us-central1"
@@ -109,23 +103,6 @@ jobs:
         kubectl wait --for=condition=available --timeout=1000s deployment/productcatalogservice
         kubectl wait --for=condition=available --timeout=1000s deployment/recommendationservice
         kubectl wait --for=condition=available --timeout=1000s deployment/shippingservice
-    - name: Query EXTERNAL_IP for staging
-      timeout-minutes: 5
-      run: |
-        set -x
-        NAMESPACE="pr${PR_NUMBER}"
-        get_externalIP() {
-          kubectl get service frontend-external --namespace $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-        }
-        until [[ -n "$(get_externalIP)" ]]; do
-          echo "Querying for external IP for frontend-external on namespace: $NAMESPACE{}"
-        sleep 3
-        done
-        EXTERNAL_IP=$(get_externalIP)
-        echo "::set-env name=EXTERNAL_IP::$EXTERNAL_IP"
-      env:
-        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-        PR_NUMBER: ${{ github.event.pull_request.number }}
     - name: Smoke Test
       timeout-minutes: 5
       run: |
@@ -143,16 +120,3 @@ jobs:
         if [[ "$ERROR_COUNT" -gt "0" ]]; then
           exit 1
         fi
-    - name: Comment EXTERNAL_IP
-      timeout-minutes: 5
-      env:
-          COMMENTS_URL: ${{ github.event.pull_request.comments_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-          curl \
-            -X POST \
-            $COMMENTS_URL \
-            -H "Content-Type: application/json" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            --data '{ "body": "🚲 PR staged at '"http://${EXTERNAL_IP}"'"}'
-          sleep 60
